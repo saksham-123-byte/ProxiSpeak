@@ -1,0 +1,128 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  font-family: 'Inter', sans-serif;
+  color: #1e293b;
+  background: #f8fafc;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-optical-sizing: auto;
+  font-weight: 400;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+button:focus-visible {
+  outline: 3px solid #a78bfa;
+  outline-offset: 3px;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.topbar {
+  height: 72px;
+  background: #fff;
+  border-bottom: 1px solid #e8eaf0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 30px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.brand,
+.topbar-right,
+.office-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.7px;
+  color: #20213a;
+}
+
+.brand-icon,
+.avatar-small {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  color: white;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  border-radius: 11px;
+  font-weight: 800;
+}
+
+.beta-tag {
+  background: #f1eaff;
+  color: #7c3aed;
+  border-radius: 6px;
+  padding: 4px 7px;
+  font-size: 10px;
+  letter-spacing: 0.7px;
+}
+
+.topbar-right {
+  gap: 10px;
+  font-size: 13px;
+}
+
+.online-indicator,
+.live-pill span,
+.toolbar-dot,
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  display: inline-block;
+}
+
+.online-label {
+  color: #64748b;
+  margin-right: 10px;
+}
+
+.invite-button {
+  border: 0;
+  background: #7c3aed;
+  color: white;
+  padding: 11px 15px;
+  border-radius: 9px;
+  font-weight: 600;
+  font-size: 13px;
+  box-shadow: 0 3px 8px #7c3aed20;
+}
+
+.invite-button:hover,
+.mute-button:hover {
+  background: #6d28d9;
+}
+
+.main-layout {
+  display: flex;
+  min-height: calc(100vh - 72px);
+}
