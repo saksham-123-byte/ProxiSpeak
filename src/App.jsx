@@ -1,9 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import OfficeCanvas from './components/office/OfficeCanvas.jsx';
 import './App.css';
 
-const WORLD_WIDTH = 1200;
-const WORLD_HEIGHT = 700;
-const PLAYER_SPEED = 240;
 const PROXIMITY_RADIUS = 180;
 
 const TEAMMATES = [
@@ -12,307 +10,15 @@ const TEAMMATES = [
   { id: 'maya', name: 'Maya', x: 970, y: 470, color: '#4ade80' },
 ];
 
-function drawRoundedRect(ctx, x, y, width, height, radius, color) {
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.roundRect(x, y, width, height, radius);
-  ctx.fill();
-}
-
-function drawDesk(ctx, x, y, label) {
-  drawRoundedRect(ctx, x, y, 105, 62, 10, '#d8d3e8');
-  drawRoundedRect(ctx, x + 8, y + 8, 89, 35, 6, '#f8fafc');
-  drawRoundedRect(ctx, x + 34, y + 47, 38, 7, 3, '#a5a0bc');
-
-  ctx.fillStyle = '#575569';
-  ctx.font = '12px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(label, x + 52, y + 82);
-}
-
-function drawPlant(ctx, x, y) {
-  ctx.fillStyle = '#a16207';
-  ctx.beginPath();
-  ctx.roundRect(x - 12, y + 12, 24, 22, 5);
-  ctx.fill();
-
-  ctx.fillStyle = '#22c55e';
-
-  const leaves = [
-    [-8, 5],
-    [8, 1],
-    [0, -9],
-    [13, -7],
-    [-14, -6],
-  ];
-
-  leaves.forEach(([dx, dy]) => {
-    ctx.beginPath();
-    ctx.ellipse(
-      x + dx,
-      y + dy,
-      7,
-      13,
-      dx / 20,
-      0,
-      Math.PI * 2
-    );
-    ctx.fill();
-  });
-}
-
-function drawAvatar(ctx, x, y, name, color, isYou = false) {
-  ctx.save();
-
-  ctx.fillStyle = isYou
-    ? 'rgba(139, 92, 246, 0.15)'
-    : 'rgba(15, 23, 42, 0.08)';
-
-  ctx.beginPath();
-  ctx.ellipse(x, y + 8, 31, 28, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.arc(x, y - 8, 19, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.arc(x - 6, y - 10, 2.5, 0, Math.PI * 2);
-  ctx.arc(x + 6, y - 10, 2.5, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(x, y - 3, 6, 0.15, Math.PI - 0.15);
-  ctx.stroke();
-
-  const labelWidth = Math.max(58, name.length * 7 + 20);
-
-  drawRoundedRect(
-    ctx,
-    x - labelWidth / 2,
-    y + 22,
-    labelWidth,
-    25,
-    12,
-    isYou ? '#7c3aed' : '#ffffff'
-  );
-
-  ctx.fillStyle = isYou ? '#ffffff' : '#334155';
-  ctx.font = '600 11px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(name, x, y + 38);
-
-  ctx.restore();
-}
-
-function drawWorld(ctx, player) {
-  ctx.clearRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-
-  ctx.fillStyle = '#f5f3ff';
-  ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-
-  // Floor grid
-  ctx.strokeStyle = '#e9e5f5';
-  ctx.lineWidth = 1;
-
-  for (let x = 0; x <= WORLD_WIDTH; x += 40) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, WORLD_HEIGHT);
-    ctx.stroke();
-  }
-
-  for (let y = 0; y <= WORLD_HEIGHT; y += 40) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(WORLD_WIDTH, y);
-    ctx.stroke();
-  }
-
-  // Office zones
-  drawRoundedRect(ctx, 40, 40, 450, 250, 22, '#ede9fe');
-  drawRoundedRect(ctx, 520, 40, 640, 250, 22, '#dbeafe');
-  drawRoundedRect(ctx, 40, 340, 1120, 320, 22, '#dcfce7');
-
-  ctx.textAlign = 'left';
-  ctx.font = '600 16px sans-serif';
-
-  ctx.fillStyle = '#6d28d9';
-  ctx.fillText('FOCUS ZONE', 60, 70);
-
-  ctx.fillStyle = '#1d4ed8';
-  ctx.fillText('COLLABORATION LOUNGE', 540, 70);
-
-  ctx.fillStyle = '#15803d';
-  ctx.fillText('TEAM SPACE', 60, 370);
-
-  // Office furniture
-  drawDesk(ctx, 90, 110, 'Workspace 01');
-  drawDesk(ctx, 260, 110, 'Workspace 02');
-  drawDesk(ctx, 570, 110, 'Meeting desk');
-  drawDesk(ctx, 740, 110, 'Workspace 03');
-  drawDesk(ctx, 90, 420, 'Workspace 04');
-  drawDesk(ctx, 260, 420, 'Workspace 05');
-  drawDesk(ctx, 570, 520, 'Workspace 06');
-  drawDesk(ctx, 740, 520, 'Workspace 07');
-
-  drawPlant(ctx, 450, 170);
-  drawPlant(ctx, 1090, 180);
-  drawPlant(ctx, 460, 560);
-  drawPlant(ctx, 1090, 560);
-
-  // Player proximity radius
-  ctx.beginPath();
-  ctx.arc(player.x, player.y, 125, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(139, 92, 246, 0.07)';
-  ctx.fill();
-
-  ctx.strokeStyle = 'rgba(139, 92, 246, 0.3)';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([6, 6]);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  TEAMMATES.forEach((person) => {
-    drawAvatar(
-      ctx,
-      person.x,
-      person.y,
-      person.name,
-      person.color
-    );
-  });
-
-  drawAvatar(ctx, player.x, player.y, 'You', '#8b5cf6', true);
-
-  drawRoundedRect(ctx, 430, 625, 340, 28, 14, '#ffffff');
-
-  ctx.fillStyle = '#64748b';
-  ctx.font = '12px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('Move with WASD or arrow keys', 600, 643);
-}
 
 function App() {
-  const canvasRef = useRef(null);
-  const playerRef = useRef({ x: 300, y: 300 });
-  const keysRef = useRef({});
-
   const [player, setPlayer] = useState({ x: 300, y: 300 });
   const [muted, setMuted] = useState(true);
   const [activeTab, setActiveTab] = useState('Office');
 
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      const key = event.key.toLowerCase();
-
-      if (
-        ['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)
-      ) {
-        event.preventDefault();
-      }
-
-      keysRef.current[key] = true;
-    };
-
-    const handleKeyUp = (event) => {
-      keysRef.current[event.key.toLowerCase()] = false;
-    };
-
-    const handleBlur = () => {
-      keysRef.current = {};
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    window.addEventListener('blur', handleBlur);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      window.removeEventListener('blur', handleBlur);
-    };
-  }, []);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-
-    if (!canvas) return undefined;
-
-    const ctx = canvas.getContext('2d');
-
-    if (!ctx) return undefined;
-
-    let animationId;
-    let previousTime = 0;
-    let lastUiUpdate = 0;
-
-    const animate = (time) => {
-      if (previousTime === 0) {
-        previousTime = time;
-      }
-
-      const delta = Math.min((time - previousTime) / 1000, 0.05);
-      previousTime = time;
-
-      const keys = keysRef.current;
-      let dx = 0;
-      let dy = 0;
-
-      if (keys.w || keys.arrowup) dy -= 1;
-      if (keys.s || keys.arrowdown) dy += 1;
-      if (keys.a || keys.arrowleft) dx -= 1;
-      if (keys.d || keys.arrowright) dx += 1;
-
-      // Keep diagonal movement at the same speed.
-      if (dx !== 0 && dy !== 0) {
-        dx *= Math.SQRT1_2;
-        dy *= Math.SQRT1_2;
-      }
-
-      const position = playerRef.current;
-
-      position.x = Math.max(
-        25,
-        Math.min(
-          WORLD_WIDTH - 25,
-          position.x + dx * PLAYER_SPEED * delta
-        )
-      );
-
-      position.y = Math.max(
-        25,
-        Math.min(
-          WORLD_HEIGHT - 25,
-          position.y + dy * PLAYER_SPEED * delta
-        )
-      );
-
-      drawWorld(ctx, position);
-
-      // React state updates are throttled, while Canvas stays smooth.
-      if (time - lastUiUpdate >= 100) {
-        setPlayer({
-          x: Math.round(position.x),
-          y: Math.round(position.y),
-        });
-
-        lastUiUpdate = time;
-      }
-
-      animationId = requestAnimationFrame(animate);
-    };
-
-    animationId = requestAnimationFrame(animate);
-
-    return () => {
-      cancelAnimationFrame(animationId);
-    };
-  }, []);
+  function handlePositionChange(position) {
+    setPlayer(position);
+  }
 
   const nearbyPeople = TEAMMATES.filter((person) => {
     const distance = Math.hypot(
@@ -465,11 +171,9 @@ function App() {
                 </div>
 
                 <div className="canvas-wrap">
-                  <canvas
-                    ref={canvasRef}
-                    width={WORLD_WIDTH}
-                    height={WORLD_HEIGHT}
-                    aria-label="Virtual office. Use WASD or arrow keys to move."
+                  <OfficeCanvas
+                    teammates={TEAMMATES}
+                    onPositionChange={handlePositionChange}
                   />
                 </div>
 
