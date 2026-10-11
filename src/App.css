@@ -1,5 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
+/* ========================================
+   1. Global styles
+======================================== */
+
 :root {
   font-family: 'Inter', sans-serif;
   color: #1e293b;
@@ -10,16 +14,36 @@
   -moz-osx-font-smoothing: grayscale;
   font-optical-sizing: auto;
   font-weight: 400;
+
+  --primary: #7c3aed;
+  --primary-dark: #6d28d9;
+  --primary-light: #f1eaff;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --border: #e8eaf0;
+  --surface: #ffffff;
+  --page-background: #f8fafc;
+  --radius: 12px;
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+}
+
+html {
+  width: 100%;
+  min-width: 320px;
+  min-height: 100%;
 }
 
 body {
   margin: 0;
+  width: 100%;
   min-width: 320px;
   min-height: 100vh;
+  background: var(--page-background);
 }
 
 button {
@@ -32,21 +56,39 @@ button:focus-visible {
   outline-offset: 3px;
 }
 
-.app-shell {
+#root {
+  width: 100%;
   min-height: 100vh;
 }
 
+.app-shell {
+  width: 100%;
+  max-width: 100%;
+  min-height: 100vh;
+  overflow-x: clip;
+}
+
+/* ========================================
+   2. Top navigation
+======================================== */
+
 .topbar {
-  height: 72px;
-  background: #fff;
-  border-bottom: 1px solid #e8eaf0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 30px;
   position: sticky;
   top: 0;
   z-index: 10;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  width: 100%;
+  min-height: 72px;
+  padding: 12px 24px;
+
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 }
 
 .brand,
@@ -58,18 +100,22 @@ button:focus-visible {
 }
 
 .brand {
+  min-width: 0;
+  color: #20213a;
   font-size: 20px;
   font-weight: 800;
   letter-spacing: -0.7px;
-  color: #20213a;
 }
 
 .brand-icon,
 .avatar-small {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+
   width: 36px;
   height: 36px;
-  display: grid;
-  place-items: center;
+
   color: white;
   background: linear-gradient(135deg, #8b5cf6, #6366f1);
   border-radius: 11px;
@@ -77,16 +123,18 @@ button:focus-visible {
 }
 
 .beta-tag {
-  background: #f1eaff;
-  color: #7c3aed;
-  border-radius: 6px;
   padding: 4px 7px;
+  color: var(--primary);
+  background: var(--primary-light);
+  border-radius: 6px;
   font-size: 10px;
   letter-spacing: 0.7px;
+  white-space: nowrap;
 }
 
 .topbar-right {
   gap: 10px;
+  min-width: 0;
   font-size: 13px;
 }
 
@@ -94,59 +142,183 @@ button:focus-visible {
 .live-pill span,
 .toolbar-dot,
 .status-dot {
+  display: inline-block;
+  flex-shrink: 0;
   width: 8px;
   height: 8px;
-  border-radius: 50%;
   background: #22c55e;
-  display: inline-block;
+  border-radius: 50%;
 }
 
 .online-label {
-  color: #64748b;
   margin-right: 10px;
+  color: var(--text-secondary);
 }
 
 .invite-button {
-  border: 0;
-  background: #7c3aed;
-  color: white;
+  flex-shrink: 0;
   padding: 11px 15px;
+
+  color: white;
+  background: var(--primary);
+  border: 0;
   border-radius: 9px;
-  font-weight: 600;
+
   font-size: 13px;
+  font-weight: 600;
   box-shadow: 0 3px 8px #7c3aed20;
+  transition: background 0.2s ease;
 }
 
 .invite-button:hover,
 .mute-button:hover {
-  background: #6d28d9;
+  background: var(--primary-dark);
 }
+
+/* ========================================
+   3. Main layout
+======================================== */
 
 .main-layout {
   display: flex;
+  width: 100%;
+  min-width: 0;
   min-height: calc(100vh - 72px);
 }
-/* Main dashboard layout */
+
 .sidebar {
-  width: 240px;
-  flex: 0 0 240px;
-  padding: 24px 18px;
-  background: #ffffff;
-  border-right: 1px solid #e8eaf0;
   display: flex;
+  flex: 0 0 240px;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
+
+  width: 240px;
+  min-width: 0;
+  padding: 24px 18px;
+
+  background: var(--surface);
+  border-right: 1px solid var(--border);
 }
 
 .content {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
   padding: 28px;
-  background: #f8fafc;
+  background: var(--page-background);
 }
+
+.workspace-label {
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+/* ========================================
+   4. Sidebar navigation
+   These were missing from your CSS
+======================================== */
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 11px 12px;
+
+  color: #475569;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.nav-item > span:first-child {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+}
+
+.nav-item:hover {
+  color: var(--primary-dark);
+  background: #f8f5ff;
+}
+
+.nav-item.selected {
+  color: var(--primary-dark);
+  background: var(--primary-light);
+  border-color: #e4d7ff;
+  font-weight: 600;
+}
+
+.nav-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 22px;
+  height: 22px;
+  margin-left: auto;
+  padding: 0 6px;
+
+  color: #6d28d9;
+  background: #e9ddff;
+  border-radius: 7px;
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.sidebar-divider {
+  width: 100%;
+  height: 1px;
+  background: var(--border);
+}
+
+.person-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin-top: 4px;
+}
+
+.person-row > div,
+.person-card > div {
+  min-width: 0;
+}
+
+.person-row .avatar-small {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 12px;
+}
+
+.sidebar-bottom {
+  margin-top: auto;
+}
+
+/* ========================================
+   5. Page heading
+======================================== */
 
 .page-heading {
   margin-bottom: 24px;
+  min-width: 0;
 }
 
 .page-heading h1 {
@@ -154,23 +326,31 @@ button:focus-visible {
   font-size: clamp(26px, 3vw, 36px);
   line-height: 1.2;
   letter-spacing: -0.8px;
+  overflow-wrap: anywhere;
 }
 
 .eyebrow {
-  color: #7c3aed;
+  color: var(--primary);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
 }
 
+/* ========================================
+   6. Cards and office canvas
+======================================== */
+
 .office-card,
 .info-card {
-  background: #ffffff;
-  border: 1px solid #e8eaf0;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 16px;
   box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
-  overflow: hidden;
 }
 
 .office-card {
@@ -179,13 +359,16 @@ button:focus-visible {
 
 .canvas-wrap {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: var(--radius);
 }
 
 .canvas-wrap canvas {
   display: block;
   width: 100%;
+  max-width: 100%;
   height: auto;
 }
 
@@ -194,10 +377,28 @@ button:focus-visible {
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
+
+  min-width: 0;
   padding: 14px 4px 0;
-  color: #64748b;
+
+  color: var(--text-secondary);
   font-size: 13px;
 }
+
+.coordinates {
+  overflow-wrap: anywhere;
+}
+
+.office-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ========================================
+   7. Information cards
+======================================== */
 
 .bottom-grid {
   display: grid;
@@ -208,13 +409,13 @@ button:focus-visible {
 
 .info-card {
   padding: 22px;
-  min-width: 0;
 }
 
 .card-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 8px;
 }
@@ -226,10 +427,15 @@ button:focus-visible {
 
 .muted-text,
 .demo-note {
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 13px;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
+
+/* ========================================
+   8. People cards
+======================================== */
 
 .people-grid {
   display: grid;
@@ -242,37 +448,44 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 10px;
+
+  min-width: 0;
   padding: 12px;
-  border: 1px solid #e8eaf0;
+
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  background: #ffffff;
 }
 
-.person-card-avatar,
-.avatar-small {
+.person-card-avatar {
   flex-shrink: 0;
 }
 
-.person-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 12px;
+.person-card strong,
+.person-card p,
+.person-row strong,
+.person-row p {
+  overflow-wrap: anywhere;
 }
 
 .empty-state {
   padding: 18px;
   margin-top: 12px;
+  color: var(--text-secondary);
+  background: var(--page-background);
   border-radius: 10px;
-  background: #f8fafc;
-  color: #64748b;
   font-size: 13px;
 }
+
+/* ========================================
+   9. Audio controls
+======================================== */
 
 .audio-card {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-width: 0;
 }
 
 .audio-status {
@@ -284,66 +497,245 @@ button:focus-visible {
 
 .mute-button {
   align-self: flex-start;
+  padding: 10px 14px;
+
+  color: white;
+  background: var(--primary);
   border: 0;
   border-radius: 9px;
-  padding: 10px 14px;
-  background: #7c3aed;
-  color: #ffffff;
+
   font-weight: 600;
+  transition: background 0.2s ease;
 }
 
-.sidebar-divider {
-  height: 1px;
-  background: #e8eaf0;
-  width: 100%;
-}
-
-.sidebar-bottom {
-  margin-top: auto;
-}
+/* ========================================
+   10. Tablet layout
+======================================== */
 
 @media (max-width: 900px) {
-  .sidebar {
-    width: 200px;
-    flex-basis: 200px;
-    padding: 20px 12px;
-  }
-
-  .content {
-    padding: 20px;
-  }
-
-  .bottom-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 640px) {
   .topbar {
-    padding: 0 16px;
+    position: relative;
+    padding: 12px 16px;
   }
 
   .main-layout {
     flex-direction: column;
+    min-height: auto;
   }
 
   .sidebar {
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+
     width: 100%;
-    flex-basis: auto;
     padding: 12px 16px;
+
     border-right: 0;
-    border-bottom: 1px solid #e8eaf0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Keep navigation visible; hide the desktop-only team list */
+  .sidebar > .workspace-label,
+  .sidebar > .sidebar-divider,
+  .sidebar > .person-row,
+  .sidebar > .sidebar-bottom {
+    display: none;
+  }
+
+  .sidebar > .nav-item {
+    flex: 0 1 auto;
+    width: auto;
+    min-height: 42px;
+    padding: 10px 12px;
+    white-space: nowrap;
   }
 
   .content {
-    padding: 16px;
+    width: 100%;
+    padding: 20px 16px;
+  }
+
+  .bottom-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .office-card,
+  .info-card {
+    width: 100%;
+  }
+
+  .page-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+  }
+
+  .page-heading h1 {
+    width: 100%;
+  }
+}
+
+/* ========================================
+   11. Mobile layout
+======================================== */
+
+@media (max-width: 480px) {
+  .topbar {
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .brand {
+    flex-wrap: wrap;
+    gap: 8px;
+    max-width: 100%;
+    font-size: 18px;
+  }
+
+  .brand-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+
+    width: 100%;
+  }
+
+  .online-label {
+    margin-right: 0;
+    font-size: 12px;
+  }
+
+  .invite-button {
+    padding: 10px 12px;
+    white-space: nowrap;
+  }
+
+  .sidebar {
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .sidebar > .nav-item {
+    flex: 1 1 auto;
+    justify-content: center;
+    gap: 7px;
+
+    min-width: 0;
+    min-height: 42px;
+    padding: 9px 10px;
+
+    font-size: 13px;
+  }
+
+  .nav-item > span:first-child {
+    width: auto;
+  }
+
+  .content {
+    padding: 12px;
+  }
+
+  .page-heading {
+    margin-bottom: 16px;
+  }
+
+  .page-heading h1 {
+    font-size: 26px;
   }
 
   .office-card {
     padding: 8px;
+    border-radius: 12px;
+  }
+
+  .canvas-wrap {
+    border-radius: 8px;
+  }
+
+  .office-toolbar,
+  .office-footer {
+    gap: 8px;
+    padding-top: 10px;
+    font-size: 12px;
+  }
+
+  .bottom-grid {
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .info-card {
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .card-heading h2 {
+    font-size: 16px;
   }
 
   .people-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .person-card {
+    gap: 8px;
+    padding: 8px;
+    font-size: 12px;
+  }
+
+  .person-card .avatar-small,
+  .person-card-avatar {
+    width: 30px;
+    height: 30px;
+  }
+
+  .mute-button {
+    max-width: 100%;
+  }
+}
+
+/* ========================================
+   12. Extra-small phones
+======================================== */
+
+@media (max-width: 350px) {
+  .topbar-right {
+    align-items: flex-start;
+  }
+
+  .sidebar > .nav-item {
+    font-size: 12px;
+    padding: 8px;
+  }
+
+  .people-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .person-card {
+    padding: 10px;
+    font-size: 13px;
+  }
+
+  .office-card {
+    padding: 6px;
+  }
+
+  .info-card {
+    padding: 12px;
   }
 }
