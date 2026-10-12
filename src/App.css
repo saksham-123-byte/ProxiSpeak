@@ -798,3 +798,37 @@ button:focus-visible {
     grid-row: 2;
   }
 }
+
+/* Office zoom controls */
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 0;
+}
+
+.zoom-controls button {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 8px 12px;
+  color: #6d28d9;
+  background: #f1eaff;
+  border: 1px solid #ddd0ff;
+  border-radius: 9px;
+  font-weight: 600;
+}
+
+.zoom-controls button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.zoom-controls span {
+  min-width: 48px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}

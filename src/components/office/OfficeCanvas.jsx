@@ -1,5 +1,5 @@
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const WORLD_WIDTH = 1200;
 const WORLD_HEIGHT = 700;
@@ -91,11 +91,19 @@ function drawAvatar(ctx, x, y, name, color, isYou = false) {
   ctx.restore();
 }
 
-function drawWorld(ctx, player, teammates) {
+function drawWorld(ctx, player, teammates, zoom = 1) {
+  // Clear the full canvas without applying the zoom transform.
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
   ctx.fillStyle = '#f5f3ff';
   ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+  // Zoom around the center of the office.
+  ctx.save();
+  ctx.translate(WORLD_WIDTH / 2, WORLD_HEIGHT / 2);
+  ctx.scale(zoom, zoom);
+  ctx.translate(-WORLD_WIDTH / 2, -WORLD_HEIGHT / 2);
 
   // Floor grid
   ctx.strokeStyle = '#e9e5f5';
@@ -171,12 +179,15 @@ function drawWorld(ctx, player, teammates) {
   ctx.font = '12px sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText('Move with WASD or arrow keys', 600, 643);
+  ctx.restore();
 }
 
 export default function OfficeCanvas({ teammates, onPositionChange }) {
   const canvasRef = useRef(null);
   const playerRef = useRef({ x: 300, y: 300 });
   const keysRef = useRef({});
+  const zoomRef = useRef(1);
+  const [zoom, setZoom] = useState(1);
 
   // Keep the latest callback without restarting the animation loop.
   const onPositionChangeRef = useRef(onPositionChange);
@@ -190,6 +201,16 @@ export default function OfficeCanvas({ teammates, onPositionChange }) {
 
   function stopTouchMove(direction) {
     keysRef.current[direction] = false;
+  } 
+  
+  function changeZoom(amount) {
+    const nextZoom = Math.min(
+      1.5,
+      Math.max(0.75, Math.round((zoomRef.current + amount) * 100) / 100),
+    );
+
+    zoomRef.current = nextZoom;
+    setZoom(nextZoom);
   }
 
   useEffect(() => {
@@ -278,7 +299,7 @@ export default function OfficeCanvas({ teammates, onPositionChange }) {
         ),
       );
 
-      drawWorld(ctx, position, teammates);
+      drawWorld(ctx, position, teammates, zoomRef.current);
 
       // Update React UI periodically, not on every animation frame.
       if (time - lastUiUpdate >= 100) {
@@ -306,7 +327,39 @@ export default function OfficeCanvas({ teammates, onPositionChange }) {
         width={WORLD_WIDTH}
         height={WORLD_HEIGHT}
         aria-label="Virtual office. Use WASD or arrow keys to move."
-      />
+      /> 
+      <div className="zoom-controls" aria-label="Office zoom controls">
+        <button
+          type="button"
+          onClick={() => changeZoom(0.1)}
+          disabled={zoom >= 1.5}
+          aria-label="Zoom in"
+        >
+          +
+        </button>
+
+        <span>{Math.round(zoom * 100)}%</span>
+
+        <button
+          type="button"
+          onClick={() => changeZoom(-0.1)}
+          disabled={zoom <= 0.75}
+          aria-label="Zoom out"
+        >
+          −
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            zoomRef.current = 1;
+            setZoom(1);
+          }}
+          disabled={zoom === 1}
+        >
+          Reset
+        </button>
+      </div>
 
       <div className="touch-controls" aria-label="Touch movement controls">
         <button
