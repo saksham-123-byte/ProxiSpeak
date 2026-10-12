@@ -181,6 +181,17 @@ export default function OfficeCanvas({ teammates, onPositionChange }) {
   // Keep the latest callback without restarting the animation loop.
   const onPositionChangeRef = useRef(onPositionChange);
 
+  function startTouchMove(direction, event) {
+    event.preventDefault();
+    keysRef.current[direction] = true;
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function stopTouchMove(direction) {
+    keysRef.current[direction] = false;
+  }
+
   useEffect(() => {
     onPositionChangeRef.current = onPositionChange;
   }, [onPositionChange]);
@@ -287,13 +298,67 @@ export default function OfficeCanvas({ teammates, onPositionChange }) {
     return () => cancelAnimationFrame(animationId);
   }, [teammates]);
 
+ 
   return (
-    <canvas
-      ref={canvasRef}
-      width={WORLD_WIDTH}
-      height={WORLD_HEIGHT}
-      aria-label="Virtual office. Use WASD or arrow keys to move."
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        width={WORLD_WIDTH}
+        height={WORLD_HEIGHT}
+        aria-label="Virtual office. Use WASD or arrow keys to move."
+      />
+
+      <div className="touch-controls" aria-label="Touch movement controls">
+        <button
+          type="button"
+          className="touch-button touch-up"
+          aria-label="Move up"
+          onPointerDown={(event) => startTouchMove('w', event)}
+          onPointerUp={() => stopTouchMove('w')}
+          onPointerCancel={() => stopTouchMove('w')}
+          onLostPointerCapture={() => stopTouchMove('w')}
+        >
+          ▲
+        </button>
+
+        <button
+          type="button"
+          className="touch-button touch-left"
+          aria-label="Move left"
+          onPointerDown={(event) => startTouchMove('a', event)}
+          onPointerUp={() => stopTouchMove('a')}
+          onPointerCancel={() => stopTouchMove('a')}
+          onLostPointerCapture={() => stopTouchMove('a')}
+        >
+          ◀
+        </button>
+
+        <button
+          type="button"
+          className="touch-button touch-down"
+          aria-label="Move down"
+          onPointerDown={(event) => startTouchMove('s', event)}
+          onPointerUp={() => stopTouchMove('s')}
+          onPointerCancel={() => stopTouchMove('s')}
+          onLostPointerCapture={() => stopTouchMove('s')}
+        >
+          ▼
+        </button>
+
+        <button
+          type="button"
+          className="touch-button touch-right"
+          aria-label="Move right"
+          onPointerDown={(event) => startTouchMove('d', event)}
+          onPointerUp={() => stopTouchMove('d')}
+          onPointerCancel={() => stopTouchMove('d')}
+          onLostPointerCapture={() => stopTouchMove('d')}
+        >
+          ▶
+        </button>
+      </div>
+    </>
   );
+
 }
 
