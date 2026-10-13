@@ -211,6 +211,9 @@ useEffect(() => {
   socket.on('connect_error', (error) => {
     console.error('Socket connection failed:', error.message);
   });
+  socket.on('disconnect', (reason) => {
+  console.warn('Disconnected from ProxiSpeak backend:', reason);
+});
 
   socket.on('player:moved', ({ socketId, location } = {}) => {
     if (
