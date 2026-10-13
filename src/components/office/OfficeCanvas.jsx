@@ -1,5 +1,6 @@
 
 import { useEffect, useRef, useState } from 'react';
+import { io } from 'socket.io-client';
 
 const WORLD_WIDTH = 1200;
 const WORLD_HEIGHT = 700;
@@ -188,6 +189,53 @@ export default function OfficeCanvas({ teammates, onPositionChange }) {
   const keysRef = useRef({});
   const zoomRef = useRef(1);
   const [zoom, setZoom] = useState(1);
+  const socketRef = useRef(null);
+  const remotePlayersRef = useRef({});
+
+
+useEffect(() => {
+  const socketUrl = import.meta.env.VITE_SOCKET_URL;
+
+  if (!socketUrl) {
+    console.error('VITE_SOCKET_URL is not configured');
+    return undefined;
+  }
+
+  const socket = io(socketUrl);
+  socketRef.current = socket;
+
+  socket.on('connect', () => {
+    console.log('Connected to ProxiSpeak backend:', socket.id);
+  });
+
+  socket.on('connect_error', (error) => {
+    console.error('Socket connection failed:', error.message);
+  });
+
+  socket.on('player:moved', ({ socketId, location } = {}) => {
+    if (
+      !socketId ||
+      typeof location?.x !== 'number' ||
+      typeof location?.y !== 'number'
+    ) {
+      return;
+    }
+
+    remotePlayersRef.current[socketId] = {
+      id: socketId,
+      name: `Player ${socketId.slice(0, 4)}`,
+      x: location.x,
+      y: location.y,
+      color: '#38bdf8',
+    };
+  });
+
+  return () => {
+    socket.disconnect();
+    socketRef.current = null;
+    remotePlayersRef.current = {};
+  };
+}, []);
 
   // Keep the latest callback without restarting the animation loop.
   const onPositionChangeRef = useRef(onPositionChange);
@@ -201,8 +249,8 @@ export default function OfficeCanvas({ teammates, onPositionChange }) {
 
   function stopTouchMove(direction) {
     keysRef.current[direction] = false;
-  } 
-  
+  }
+
   function changeZoom(amount) {
     const nextZoom = Math.min(
       1.5,
@@ -299,14 +347,29 @@ export default function OfficeCanvas({ teammates, onPositionChange }) {
         ),
       );
 
-      drawWorld(ctx, position, teammates, zoomRef.current);
+      const remotePlayers = Object.values(remotePlayersRef.current);
+      const visibleTeammates = [
+        ...teammates.filter((person) => !person.id?.startsWith('socket-')),
+        ...remotePlayers.map((person) => ({
+          ...person,
+          id: `socket-${person.id}`,
+        })),
+      ];
+
+      drawWorld(ctx, position, visibleTeammates, zoomRef.current);
 
       // Update React UI periodically, not on every animation frame.
       if (time - lastUiUpdate >= 100) {
-        onPositionChangeRef.current({
+        const currentPosition = {
           x: Math.round(position.x),
           y: Math.round(position.y),
-        });
+        };
+
+        onPositionChangeRef.current(currentPosition);
+
+        if (socketRef.current?.connected) {
+          socketRef.current.emit('player:move', currentPosition);
+        }
 
         lastUiUpdate = time;
       }
@@ -319,7 +382,7 @@ export default function OfficeCanvas({ teammates, onPositionChange }) {
     return () => cancelAnimationFrame(animationId);
   }, [teammates]);
 
- 
+
   return (
     <>
       <canvas
@@ -327,7 +390,7 @@ export default function OfficeCanvas({ teammates, onPositionChange }) {
         width={WORLD_WIDTH}
         height={WORLD_HEIGHT}
         aria-label="Virtual office. Use WASD or arrow keys to move."
-      /> 
+      />
       <div className="zoom-controls" aria-label="Office zoom controls">
         <button
           type="button"
