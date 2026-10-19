@@ -26,7 +26,6 @@ function drawDesk(ctx, x, y, label) {
 
 function drawPlant(ctx, x, y) {
   drawRoundedRect(ctx, x - 12, y + 12, 24, 22, 5, '#a16207');
-
   ctx.fillStyle = '#22c55e';
 
   const leaves = [
@@ -93,20 +92,17 @@ function drawAvatar(ctx, x, y, name, color, isYou = false) {
 }
 
 function drawWorld(ctx, player, teammates, zoom = 1) {
-  // Clear the full canvas without applying the zoom transform.
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
   ctx.fillStyle = '#f5f3ff';
   ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-  // Zoom around the center of the office.
   ctx.save();
   ctx.translate(WORLD_WIDTH / 2, WORLD_HEIGHT / 2);
   ctx.scale(zoom, zoom);
   ctx.translate(-WORLD_WIDTH / 2, -WORLD_HEIGHT / 2);
 
-  // Floor grid
   ctx.strokeStyle = '#e9e5f5';
   ctx.lineWidth = 1;
 
@@ -124,7 +120,6 @@ function drawWorld(ctx, player, teammates, zoom = 1) {
     ctx.stroke();
   }
 
-  // Office zones
   drawRoundedRect(ctx, 40, 40, 450, 250, 22, '#ede9fe');
   drawRoundedRect(ctx, 520, 40, 640, 250, 22, '#dbeafe');
   drawRoundedRect(ctx, 40, 340, 1120, 320, 22, '#dcfce7');
@@ -141,7 +136,6 @@ function drawWorld(ctx, player, teammates, zoom = 1) {
   ctx.fillStyle = '#15803d';
   ctx.fillText('TEAM SPACE', 60, 370);
 
-  // Office furniture
   drawDesk(ctx, 90, 110, 'Workspace 01');
   drawDesk(ctx, 260, 110, 'Workspace 02');
   drawDesk(ctx, 570, 110, 'Meeting desk');
@@ -156,7 +150,6 @@ function drawWorld(ctx, player, teammates, zoom = 1) {
   drawPlant(ctx, 460, 560);
   drawPlant(ctx, 1090, 560);
 
-  // Player proximity radius
   ctx.beginPath();
   ctx.arc(player.x, player.y, 125, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(139, 92, 246, 0.07)';
@@ -169,7 +162,13 @@ function drawWorld(ctx, player, teammates, zoom = 1) {
   ctx.setLineDash([]);
 
   teammates.forEach((person) => {
-    drawAvatar(ctx, person.x, person.y, person.name, person.color);
+    drawAvatar(
+      ctx,
+      person.x,
+      person.y,
+      person.name || 'Teammate',
+      person.color || '#38bdf8',
+    );
   });
 
   drawAvatar(ctx, player.x, player.y, 'You', '#8b5cf6', true);
@@ -180,93 +179,77 @@ function drawWorld(ctx, player, teammates, zoom = 1) {
   ctx.font = '12px sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText('Move with WASD or arrow keys', 600, 643);
+
   ctx.restore();
 }
 
-export default function OfficeCanvas({ teammates, onPositionChange }) {
+export default function OfficeCanvas({ teammates = [], onPositionChange }) {
   const canvasRef = useRef(null);
   const playerRef = useRef({ x: 300, y: 300 });
   const keysRef = useRef({});
   const zoomRef = useRef(1);
-  const [zoom, setZoom] = useState(1);
   const socketRef = useRef(null);
   const remotePlayersRef = useRef({});
-
-
-useEffect(() => {
-  const socketUrl = import.meta.env.VITE_SOCKET_URL;
-
-  if (!socketUrl) {
-    console.error('VITE_SOCKET_URL is not configured');
-    return undefined;
-  }
-
-  const socket = io(socketUrl);
-  socketRef.current = socket;
-
-  socket.on('connect', () => {
-    console.log('Connected to ProxiSpeak backend:', socket.id);
-  });
-
-  socket.on('connect_error', (error) => {
-    console.error('Socket connection failed:', error.message);
-  });
-  socket.on('disconnect', (reason) => {
-  console.warn('Disconnected from ProxiSpeak backend:', reason);
-});
-
-  socket.on('player:moved', ({ socketId, location } = {}) => {
-    if (
-      !socketId ||
-      typeof location?.x !== 'number' ||
-      typeof location?.y !== 'number'
-    ) {
-      return;
-    }
-
-    remotePlayersRef.current[socketId] = {
-      id: socketId,
-      name: `Player ${socketId.slice(0, 4)}`,
-      x: location.x,
-      y: location.y,
-      color: '#38bdf8',
-    };
-  });
-
-  return () => {
-    socket.disconnect();
-    socketRef.current = null;
-    remotePlayersRef.current = {};
-  };
-}, []);
-
-  // Keep the latest callback without restarting the animation loop.
+  const teammatesRef = useRef(teammates);
   const onPositionChangeRef = useRef(onPositionChange);
 
-  function startTouchMove(direction, event) {
-    event.preventDefault();
-    keysRef.current[direction] = true;
+  const [zoom, setZoom] = useState(1);
 
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-
-  function stopTouchMove(direction) {
-    keysRef.current[direction] = false;
-  }
-
-  function changeZoom(amount) {
-    const nextZoom = Math.min(
-      1.5,
-      Math.max(0.75, Math.round((zoomRef.current + amount) * 100) / 100),
-    );
-
-    zoomRef.current = nextZoom;
-    setZoom(nextZoom);
-  }
+  useEffect(() => {
+    teammatesRef.current = Array.isArray(teammates) ? teammates : [];
+  }, [teammates]);
 
   useEffect(() => {
     onPositionChangeRef.current = onPositionChange;
   }, [onPositionChange]);
+
+  useEffect(() => {
+    const socketUrl = import.meta.env.VITE_SOCKET_URL;
+
+    if (!socketUrl) {
+      console.warn('VITE_SOCKET_URL is not configured; multiplayer disabled.');
+      return undefined;
+    }
+
+    const socket = io(socketUrl);
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('Connected to ProxiSpeak backend:', socket.id);
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('Socket connection failed:', error.message);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.warn('Disconnected from ProxiSpeak backend:', reason);
+    });
+
+    socket.on('player:moved', ({ socketId, location } = {}) => {
+      if (
+        !socketId ||
+        typeof location?.x !== 'number' ||
+        typeof location?.y !== 'number'
+      ) {
+        return;
+      }
+
+      remotePlayersRef.current[socketId] = {
+        id: socketId,
+        name: `Player ${socketId.slice(0, 4)}`,
+        x: location.x,
+        y: location.y,
+        color: '#38bdf8',
+      };
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+      remotePlayersRef.current = {};
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -300,6 +283,36 @@ useEffect(() => {
     };
   }, []);
 
+  function changeZoom(amount) {
+    const nextZoom = Math.min(
+      1.5,
+      Math.max(0.75, Math.round((zoomRef.current + amount) * 100) / 100),
+    );
+
+    zoomRef.current = nextZoom;
+    setZoom(nextZoom);
+  }
+
+  function resetZoom() {
+    zoomRef.current = 1;
+    setZoom(1);
+  }
+
+  function startTouchMove(direction, event) {
+    event.preventDefault();
+    keysRef.current[direction] = true;
+
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture may not be available in every browser.
+    }
+  }
+
+  function stopTouchMove(direction) {
+    keysRef.current[direction] = false;
+  }
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
@@ -326,7 +339,6 @@ useEffect(() => {
       if (keys.a || keys.arrowleft) dx -= 1;
       if (keys.d || keys.arrowright) dx += 1;
 
-      // Keep diagonal movement at the same speed.
       if (dx !== 0 && dy !== 0) {
         dx *= Math.SQRT1_2;
         dy *= Math.SQRT1_2;
@@ -336,23 +348,20 @@ useEffect(() => {
 
       position.x = Math.max(
         25,
-        Math.min(
-          WORLD_WIDTH - 25,
-          position.x + dx * PLAYER_SPEED * delta,
-        ),
+        Math.min(WORLD_WIDTH - 25, position.x + dx * PLAYER_SPEED * delta),
       );
 
       position.y = Math.max(
         25,
-        Math.min(
-          WORLD_HEIGHT - 25,
-          position.y + dy * PLAYER_SPEED * delta,
-        ),
+        Math.min(WORLD_HEIGHT - 25, position.y + dy * PLAYER_SPEED * delta),
       );
 
       const remotePlayers = Object.values(remotePlayersRef.current);
+
       const visibleTeammates = [
-        ...teammates.filter((person) => !person.id?.startsWith('socket-')),
+        ...teammatesRef.current.filter(
+          (person) => !person.id?.startsWith('socket-'),
+        ),
         ...remotePlayers.map((person) => ({
           ...person,
           id: `socket-${person.id}`,
@@ -361,14 +370,13 @@ useEffect(() => {
 
       drawWorld(ctx, position, visibleTeammates, zoomRef.current);
 
-      // Update React UI periodically, not on every animation frame.
       if (time - lastUiUpdate >= 100) {
         const currentPosition = {
           x: Math.round(position.x),
           y: Math.round(position.y),
         };
 
-        onPositionChangeRef.current(currentPosition);
+        onPositionChangeRef.current?.(currentPosition);
 
         if (socketRef.current?.connected) {
           socketRef.current.emit('player:move', currentPosition);
@@ -383,17 +391,18 @@ useEffect(() => {
     animationId = requestAnimationFrame(animate);
 
     return () => cancelAnimationFrame(animationId);
-  }, [teammates]);
-
+  }, []);
 
   return (
     <>
       <canvas
         ref={canvasRef}
+        className="office-canvas"
         width={WORLD_WIDTH}
         height={WORLD_HEIGHT}
         aria-label="Virtual office. Use WASD or arrow keys to move."
       />
+
       <div className="zoom-controls" aria-label="Office zoom controls">
         <button
           type="button"
@@ -417,10 +426,7 @@ useEffect(() => {
 
         <button
           type="button"
-          onClick={() => {
-            zoomRef.current = 1;
-            setZoom(1);
-          }}
+          onClick={resetZoom}
           disabled={zoom === 1}
         >
           Reset
@@ -478,6 +484,4 @@ useEffect(() => {
       </div>
     </>
   );
-
 }
-
