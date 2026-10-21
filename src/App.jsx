@@ -1,6 +1,6 @@
-
 import { useState } from 'react';
 import OfficeCanvas from './components/office/OfficeCanvas.jsx';
+import VoiceControls from './components/office/VoiceControls.jsx';
 import useWebRTC from './hooks/useWebRTC.js';
 import './App.css';
 
@@ -15,22 +15,15 @@ const TEAMMATES = [
 function App() {
   const [player, setPlayer] = useState({ x: 300, y: 300 });
   const [activeTab, setActiveTab] = useState('Office');
-  const [remoteSdp, setRemoteSdp] = useState('');
-  const [sdpCopied, setSdpCopied] = useState(false);
 
   const {
     isMicOn,
     isMuted,
     error,
-    localSdp,
     connectionState,
-    remoteAudioRef,
     startMicrophone,
     toggleMicrophone,
     stopMicrophone,
-    createOffer,
-    acceptOffer,
-    acceptAnswer,
   } = useWebRTC();
 
   function handlePositionChange(position) {
@@ -53,20 +46,6 @@ function App() {
     } catch {
       window.alert(
         'Copy the office URL from your browser address bar to share it.'
-      );
-    }
-  }
-
-  async function copySdp() {
-    if (!localSdp) return;
-
-    try {
-      await navigator.clipboard.writeText(localSdp);
-      setSdpCopied(true);
-    } catch {
-      setSdpCopied(false);
-      window.alert(
-        'Copy failed. Select the SDP text and copy it manually.'
       );
     }
   }
@@ -221,9 +200,7 @@ function App() {
                   <div className="card-heading">
                     <div>
                       <h2>People nearby</h2>
-                      <p>
-                        Teammates within your proximity radius
-                      </p>
+                      <p>Teammates within your proximity radius</p>
                     </div>
 
                     <span className="count-badge">
@@ -333,135 +310,22 @@ function App() {
                     </>
                   )}
 
-                  <div
-                    style={{
-                      marginTop: '20px',
-                      paddingTop: '16px',
-                      borderTop: '1px solid #374151',
-                    }}
-                  >
-                    <h3>WebRTC Test — Two Tabs</h3>
+                  <p className="demo-note">
+                    Use the Team Voice panel below to join a shared voice room.
+                  </p>
+                </section>
 
-                    <p>
-                      Connection status:{' '}
-                      <strong>{connectionState}</strong>
-                    </p>
-
-                    <button
-                      className="mute-button"
-                      onClick={createOffer}
-                    >
-                      1. Create Offer
-                    </button>
-
-                    <label
-                      htmlFor="local-sdp"
-                      style={{
-                        display: 'block',
-                        marginTop: '12px',
-                      }}
-                    >
-                      Your Offer / Answer
-                    </label>
-
-                    <textarea
-                      id="local-sdp"
-                      value={localSdp}
-                      readOnly
-                      rows={5}
-                      style={{
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        marginTop: '6px',
-                        padding: '8px',
-                        resize: 'vertical',
-                        overflowWrap: 'anywhere',
-                      }}
-                    />
-
-                    <button
-                      className="mute-button"
-                      onClick={copySdp}
-                      disabled={!localSdp}
-                      style={{ marginTop: '8px' }}
-                    >
-                      {sdpCopied
-                        ? 'Copied!'
-                        : 'Copy Offer / Answer'}
-                    </button>
-
-                    <label
-                      htmlFor="remote-sdp"
-                      style={{
-                        display: 'block',
-                        marginTop: '12px',
-                      }}
-                    >
-                      Other Tab's Offer / Answer
-                    </label>
-
-                    <textarea
-                      id="remote-sdp"
-                      value={remoteSdp}
-                      onChange={(event) => {
-                        setRemoteSdp(event.target.value);
-                      }}
-                      placeholder="Paste the SDP from the other tab here..."
-                      rows={5}
-                      style={{
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        marginTop: '6px',
-                        padding: '8px',
-                        resize: 'vertical',
-                        overflowWrap: 'anywhere',
-                      }}
-                    />
-
-                    <button
-                      className="mute-button"
-                      onClick={() => acceptOffer(remoteSdp)}
-                      style={{ marginTop: '8px' }}
-                    >
-                      2. Accept Offer & Create Answer
-                    </button>
-
-                    <button
-                      className="mute-button"
-                      onClick={() => acceptAnswer(remoteSdp)}
-                      style={{ marginTop: '8px' }}
-                    >
-                      3. Accept Answer
-                    </button>
-
-                    <audio
-                      ref={remoteAudioRef}
-                      autoPlay
-                      controls
-                      style={{
-                        width: '100%',
-                        marginTop: '12px',
-                      }}
-                    />
+                <section className="info-card">
+                  <div className="card-heading">
+                    <div>
+                      <h2>Join Team Voice</h2>
+                      <p>
+                        Enter the same room ID as your teammate.
+                      </p>
+                    </div>
                   </div>
 
-                  {error && (
-                    <p
-                      role="alert"
-                      style={{
-                        color: '#ef4444',
-                        fontSize: '13px',
-                        overflowWrap: 'anywhere',
-                      }}
-                    >
-                      {error}
-                    </p>
-                  )}
-
-                  <p className="demo-note">
-                    Manual SDP exchange is used for this frontend-only
-                    test. No signaling server is connected.
-                  </p>
+                  <VoiceControls />
                 </section>
               </div>
             </>
