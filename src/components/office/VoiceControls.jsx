@@ -4,6 +4,7 @@ import useWebRTC from "../../hooks/useWebRTC";
 
 export default function VoiceControls() {
   const [roomInput, setRoomInput] = useState("proxispeak-room");
+  const [roomError, setRoomError] = useState("");
 
   const {
     isMicOn,
@@ -22,9 +23,13 @@ export default function VoiceControls() {
   const handleJoin = () => {
     const trimmedRoom = roomInput.trim();
 
-    if (trimmedRoom) {
-      joinRoom(trimmedRoom);
+    if (!trimmedRoom) {
+      setRoomError("Please enter a Room ID to join.");
+      return;
     }
+
+    setRoomError("");
+    joinRoom(trimmedRoom);
   };
 
   const statusColor = isJoined
@@ -68,6 +73,7 @@ export default function VoiceControls() {
             display: "inline-block",
           }}
         />
+
         <span>
           {isJoined
             ? `Room: ${roomId} · ${connectionState}`
@@ -80,19 +86,40 @@ export default function VoiceControls() {
       <input
         id="voice-room"
         value={roomInput}
-        onChange={(event) => setRoomInput(event.target.value)}
+        onChange={(event) => {
+          setRoomInput(event.target.value);
+
+          if (event.target.value.trim()) {
+            setRoomError("");
+          }
+        }}
         placeholder="Enter the same room ID on both devices"
         disabled={isJoined}
+        aria-invalid={Boolean(roomError)}
+        aria-describedby={roomError ? "room-error" : undefined}
         style={{
           padding: "10px",
           borderRadius: "8px",
-          border: "1px solid #4b5563",
+          border: roomError
+            ? "1px solid #f87171"
+            : "1px solid #4b5563",
+          outline: "none",
         }}
       />
 
+      {roomError && (
+        <p
+          id="room-error"
+          role="alert"
+          style={{ color: "#fca5a5", margin: 0, fontSize: "14px" }}
+        >
+          {roomError}
+        </p>
+      )}
+
       <button
         onClick={handleJoin}
-        disabled={isJoined || !roomInput.trim()}
+        disabled={isJoined}
       >
         {isJoined ? `Joined: ${roomId}` : "Join Voice Room"}
       </button>
@@ -112,7 +139,10 @@ export default function VoiceControls() {
         {isMuted ? "Unmute Mic" : "Mute Mic"}
       </button>
 
-      <button onClick={stopMicrophone} disabled={!isJoined && !isMicOn}>
+      <button
+        onClick={stopMicrophone}
+        disabled={!isJoined && !isMicOn}
+      >
         End Voice / Leave Room
       </button>
 
