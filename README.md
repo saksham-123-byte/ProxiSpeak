@@ -187,3 +187,34 @@ node server.js
 - The Socket.IO signaling server running
 
 **Note:** Microphone access generally requires `localhost` or a secure HTTPS context. Network configuration and browser permissions can affect connections between different devices.
+## Week 3: WebRTC Audio Check
+
+### Objective
+Verify that two browser sessions can establish a peer-to-peer audio connection through the Socket.IO signaling server.
+
+### Verification Procedure
+
+1. Start the signaling server using `node server.js`.
+2. Start the frontend using `npm run dev`.
+3. Open the application in two separate browser tabs.
+4. Allow microphone access in both browser sessions.
+5. Enable the microphone and join the same voice room using an identical Room ID.
+6. Confirm that the connection status indicates a successful connection.
+7. Speak into one browser's microphone and check whether the other browser receives the audio.
+8. Repeat in the opposite direction to verify two-way audio.
+9. Mute and unmute the microphone to check the audio controls.
+10. Select **End Voice / Leave Room** to end the session.
+
+### Expected Result
+
+Both browser sessions should join the same room, establish a WebRTC peer-to-peer audio connection through the signaling server, and transmit audio when microphone permissions and network conditions allow.
+
+### Evidence to Record
+
+- Browser sessions used for the check
+- Room ID used in both sessions
+- Connection status displayed by the application
+- Confirmation of audio reception in both directions
+- Any errors encountered during connection setup
+
+**Note:** Record the verification as successful only after confirming the audio connection in both browser sessions.
