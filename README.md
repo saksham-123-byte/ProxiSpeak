@@ -140,3 +140,50 @@ It also demonstrates integration between a React frontend and a Node.js signalin
 ## License
 
 A project license has not yet been specified.
+## WebRTC Voice Integration
+
+ProxiSpeak includes real-time peer-to-peer audio communication powered by WebRTC and Socket.IO signaling.
+
+### Features
+
+- **Microphone Access:** Uses the browser's `getUserMedia()` API to request microphone access.
+- **Peer-to-Peer Audio:** Establishes WebRTC connections for real-time audio communication between users.
+- **Room-Based Communication:** Users can join a voice room using a shared Room ID.
+- **Microphone Controls:** Enable, mute, and unmute the microphone during a voice session.
+- **Connection Status:** Displays the current room and voice connection state.
+- **Leave Room:** Stops the voice session and releases microphone resources through the cleanup flow.
+- **Room ID Validation:** Displays feedback when the Room ID is empty.
+- **Signaling:** Uses Socket.IO to exchange the information required to establish WebRTC connections.
+
+### Running the Application
+
+Start the frontend:
+
+```bash
+npm install
+npm run dev
+```
+
+Start the signaling server in a separate terminal:
+
+```bash
+node server.js
+```
+
+### Using Voice Rooms
+
+1. Open ProxiSpeak in your browser.
+2. Allow microphone access when prompted.
+3. Enter a Room ID and select **Join Voice Room**.
+4. Have the other participant join using the same Room ID.
+5. Use the microphone controls to mute or unmute audio.
+6. Select **End Voice / Leave Room** to end the session.
+
+### Requirements
+
+- Node.js and npm
+- A modern browser with WebRTC support
+- Microphone access permission
+- The Socket.IO signaling server running
+
+**Note:** Microphone access generally requires `localhost` or a secure HTTPS context. Network configuration and browser permissions can affect connections between different devices.
