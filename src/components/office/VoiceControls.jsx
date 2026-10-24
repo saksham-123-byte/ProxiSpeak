@@ -32,11 +32,25 @@ export default function VoiceControls() {
     joinRoom(trimmedRoom);
   };
 
-  const statusColor = isJoined
-    ? connectionState === "connected"
+  const statusColor = !isJoined
+    ? "#9ca3af"
+    : connectionState === "connected"
       ? "#4ade80"
-      : "#facc15"
-    : "#9ca3af";
+      : ["failed", "disconnected", "closed"].includes(connectionState)
+        ? "#f87171"
+        : "#facc15";
+
+  const statusText = !isJoined
+    ? "Not connected"
+    : connectionState === "connected"
+      ? `Room: ${roomId} · Connected`
+      : connectionState === "failed"
+        ? `Room: ${roomId} · Connection failed`
+        : connectionState === "disconnected"
+          ? `Room: ${roomId} · Disconnected`
+          : connectionState === "closed"
+            ? `Room: ${roomId} · Connection closed`
+            : `Room: ${roomId} · Connecting…`;
 
   return (
     <div
@@ -54,14 +68,14 @@ export default function VoiceControls() {
       <h3 style={{ margin: 0 }}>ProxiSpeak Voice</h3>
 
       <div
+        role="status"
+        aria-live="polite"
         style={{
           display: "flex",
           alignItems: "center",
           gap: "8px",
           fontSize: "14px",
         }}
-        role="status"
-        aria-live="polite"
       >
         <span
           aria-hidden="true"
@@ -71,14 +85,11 @@ export default function VoiceControls() {
             borderRadius: "50%",
             background: statusColor,
             display: "inline-block",
+            flexShrink: 0,
           }}
         />
 
-        <span>
-          {isJoined
-            ? `Room: ${roomId} · ${connectionState}`
-            : "Not connected"}
-        </span>
+        <span>{statusText}</span>
       </div>
 
       <label htmlFor="voice-room">Room ID</label>
@@ -111,7 +122,11 @@ export default function VoiceControls() {
         <p
           id="room-error"
           role="alert"
-          style={{ color: "#fca5a5", margin: 0, fontSize: "14px" }}
+          style={{
+            color: "#fca5a5",
+            margin: 0,
+            fontSize: "14px",
+          }}
         >
           {roomError}
         </p>
@@ -119,13 +134,14 @@ export default function VoiceControls() {
 
       <button
         onClick={handleJoin}
-        disabled={isJoined}
+        disabled={isJoined || !roomInput.trim()}
       >
         {isJoined ? `Joined: ${roomId}` : "Join Voice Room"}
       </button>
 
       <p style={{ margin: 0 }}>
-        Microphone: {isMicOn ? (isMuted ? "Muted 🔇" : "On 🎙️") : "Off"}
+        Microphone:{" "}
+        {isMicOn ? (isMuted ? "Muted 🔇" : "On 🎙️") : "Off"}
       </p>
 
       <button onClick={startMicrophone} disabled={isMicOn}>
@@ -155,7 +171,10 @@ export default function VoiceControls() {
       />
 
       {error && (
-        <p role="alert" style={{ color: "#fca5a5", margin: 0 }}>
+        <p
+          role="alert"
+          style={{ color: "#fca5a5", margin: 0 }}
+        >
           {error}
         </p>
       )}
