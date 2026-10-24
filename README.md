@@ -187,3 +187,21 @@ node server.js
 - The Socket.IO signaling server running
 
 **Note:** Microphone access generally requires `localhost` or a secure HTTPS context. Network configuration and browser permissions can affect connections between different devices.
+## Development Log — October 24, 2026
+
+### Voice Communication Improvements
+
+ProxiSpeak's voice communication workflow supports room-based audio sessions using WebRTC and Socket.IO signaling.
+
+Recent development work focuses on improving usability and documenting the voice connection workflow.
+
+- Added Room ID validation feedback to help users identify empty room input.
+- Improved voice connection status visibility in the interface.
+- Documented the procedure for checking audio communication between two browser sessions.
+- Documented microphone permissions, connection setup, mute and unmute controls, and session cleanup.
+
+### Next Development Goals
+
+- Verify two-way audio communication across separate devices and networks.
+- Improve connection error feedback and recovery behavior.
+- Continue refining the voice interface and user experience.
