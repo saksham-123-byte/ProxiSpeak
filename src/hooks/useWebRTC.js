@@ -1,24 +1,38 @@
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { io } from "socket.io-client";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { io } from 'socket.io-client';
 
-const SIGNALING_URL = "http://localhost:3001";
+const SIGNALING_URL = 'http://localhost:3001';
 
 const ICE_SERVERS = [
-  { urls: "stun:stun.l.google.com:19302" },
+  { urls: 'stun:stun.l.google.com:19302' },
 ];
 
-function normalizeSdp(sdp) {
-  if (typeof sdp !== "string" || !sdp.trim()) {
-    throw new Error("SDP empty hai.");
-  }
+const MIN_AUDIO_GAIN = 0.15;
+const MAX_AUDIO_GAIN = 1;
+const MAX_AUDIO_DISTANCE = 600;
 
-  return sdp
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .split("\n")
-    .filter((line) => line.length > 0)
-    .join("\r\n") + "\r\n";
+function calculateAudioGain(distance) {
+  const normalizedDistance = Math.min(
+    Math.max(distance, 0) / MAX_AUDIO_DISTANCE,
+    1
+  );
+
+  return (
+    MAX_AUDIO_GAIN -
+    normalizedDistance * (MAX_AUDIO_GAIN - MIN_AUDIO_GAIN)
+  );
+}
+
+function normalizeSdp(description) {
+  return description;
+}
+
+function getDistance(positionA, positionB) {
+  return Math.hypot(
+    positionB.x - positionA.x,
+    positionB.y - positionA.y
+  );
 }
 
 export default function useWebRTC() {
@@ -26,32 +40,123 @@ export default function useWebRTC() {
   const peerRef = useRef(null);
   const remoteAudioRef = useRef(null);
   const socketRef = useRef(null);
-  const roomRef = useRef("");
+  const roomRef = useRef(null);
   const initiatorRef = useRef(false);
   const offerStartedRef = useRef(false);
   const pendingCandidatesRef = useRef([]);
 
+  const audioContextRef = useRef(null);
+  const audioSourceRef = useRef(null);
+  const gainNodeRef = useRef(null);
+  const remoteStreamRef = useRef(null);
+
   const [isMicOn, setIsMicOn] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [error, setError] = useState("");
-  const [localSdp, setLocalSdp] = useState("");
-  const [connectionState, setConnectionState] = useState("new");
+  const [error, setError] = useState('');
+  const [localSdp, setLocalSdp] = useState(null);
+  const [connectionState, setConnectionState] = useState('disconnected');
   const [isJoined, setIsJoined] = useState(false);
-  const [roomId, setRoomId] = useState("");
+  const [roomId, setRoomId] = useState('');
+
+  const updateAudioDistance = useCallback((distance) => {
+    const gainNode = gainNodeRef.current;
+    const audioContext = audioContextRef.current;
+
+    if (!gainNode || !audioContext) return;
+
+    const targetGain = calculateAudioGain(distance);
+
+    gainNode.gain.setTargetAtTime(
+      targetGain,
+      audioContext.currentTime,
+      0.05
+    );
+  }, []);
+
+  const setupRemoteAudio = useCallback(async (stream) => {
+    remoteStreamRef.current = stream;
+
+    try {
+      let audioContext = audioContextRef.current;
+
+      if (!audioContext || audioContext.state === 'closed') {
+        audioContext = new AudioContext();
+        audioContextRef.current = audioContext;
+      }
+
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+
+      if (audioSourceRef.current) {
+        audioSourceRef.current.disconnect();
+        audioSourceRef.current = null;
+      }
+
+      if (gainNodeRef.current) {
+        gainNodeRef.current.disconnect();
+        gainNodeRef.current = null;
+      }
+
+      const source = audioContext.createMediaStreamSource(stream);
+      const gainNode = audioContext.createGain();
+
+      source.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      audioSourceRef.current = source;
+      gainNodeRef.current = gainNode;
+
+      // Initial distance until actual player positions are connected.
+      updateAudioDistance(0);
+
+      // Audio is routed through Web Audio API, so don't also play the
+      // same stream through the HTML audio element.
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.pause();
+        remoteAudioRef.current.srcObject = null;
+      }
+    } catch (err) {
+      console.error('Web Audio setup failed:', err);
+      setError('Could not initialize spatial audio. Check browser audio permissions.');
+    }
+  }, [updateAudioDistance]);
+
+  const cleanupAudio = useCallback(async () => {
+    if (audioSourceRef.current) {
+      audioSourceRef.current.disconnect();
+      audioSourceRef.current = null;
+    }
+
+    if (gainNodeRef.current) {
+      gainNodeRef.current.disconnect();
+      gainNodeRef.current = null;
+    }
+
+    remoteStreamRef.current = null;
+
+    if (audioContextRef.current) {
+      const context = audioContextRef.current;
+      audioContextRef.current = null;
+
+      if (context.state !== 'closed') {
+        await context.close().catch(() => {});
+      }
+    }
+
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.pause();
+      remoteAudioRef.current.srcObject = null;
+    }
+  }, []);
 
   const ensureMicrophone = useCallback(async () => {
-    if (streamRef.current?.getAudioTracks().length) {
-      const track = streamRef.current.getAudioTracks()[0];
-      track.enabled = true;
-      setIsMicOn(true);
-      setIsMuted(false);
+    if (streamRef.current) {
       return streamRef.current;
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      throw new Error(
-        "Microphone API unavailable hai. localhost ya HTTPS par app kholo."
-      );
+      throw new Error('Microphone access is not supported in this browser.');
     }
 
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -66,68 +171,36 @@ export default function useWebRTC() {
     return stream;
   }, []);
 
-  const startMicrophone = useCallback(async () => {
-    try {
-      setError("");
-      await ensureMicrophone();
-    } catch (err) {
-      setError(err.message || "Microphone start nahi hua.");
-    }
-  }, [ensureMicrophone]);
-
-  const toggleMicrophone = useCallback(() => {
-    const track = streamRef.current?.getAudioTracks()[0];
-
-    if (!track) {
-      setError("Pehle Start Voice click karo.");
-      return;
-    }
-
-    track.enabled = !track.enabled;
-    setIsMicOn(true);
-    setIsMuted(!track.enabled);
-    setError("");
-  }, []);
-
-  const createPeerConnection = useCallback(() => {
+  const createPeerConnection = useCallback(async () => {
     if (peerRef.current) {
-      peerRef.current.ontrack = null;
-      peerRef.current.onicecandidate = null;
-      peerRef.current.close();
+      return peerRef.current;
     }
-
-    pendingCandidatesRef.current = [];
 
     const pc = new RTCPeerConnection({
       iceServers: ICE_SERVERS,
     });
 
-    pc.ontrack = async (event) => {
-      const audio = remoteAudioRef.current;
+    peerRef.current = pc;
 
-      if (audio && event.streams[0]) {
-        audio.srcObject = event.streams[0];
+    const localStream = await ensureMicrophone();
 
-        try {
-          await audio.play();
-          setError("");
-        } catch {
-          setError(
-            "Remote audio autoplay block hua. Audio player par Play click karo."
-          );
-        }
+    localStream.getTracks().forEach((track) => {
+      pc.addTrack(track, localStream);
+    });
+
+    pc.ontrack = (event) => {
+      const stream = event.streams?.[0];
+
+      if (stream) {
+        void setupRemoteAudio(stream);
       }
     };
 
     pc.onicecandidate = (event) => {
-      if (
-        event.candidate &&
-        socketRef.current?.connected &&
-        roomRef.current
-      ) {
-        socketRef.current.emit("webrtc-ice-candidate", {
+      if (event.candidate && socketRef.current && roomRef.current) {
+        socketRef.current.emit('webrtc-ice-candidate', {
           roomId: roomRef.current,
-          candidate: event.candidate.toJSON(),
+          candidate: event.candidate,
         });
       }
     };
@@ -135,244 +208,192 @@ export default function useWebRTC() {
     pc.onconnectionstatechange = () => {
       setConnectionState(pc.connectionState);
 
-      if (pc.connectionState === "failed") {
+      if (
+        pc.connectionState === 'failed' ||
+        pc.connectionState === 'closed'
+      ) {
         setError(
-          "WebRTC connection fail hua. Kuch networks par TURN server zaroori hota hai."
+          pc.connectionState === 'failed'
+            ? 'Voice connection failed. Try reconnecting.'
+            : ''
         );
       }
     };
 
-    pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === "failed") {
-        setError("ICE fail hua. Network ya TURN configuration check karo.");
-      }
-    };
-
-    peerRef.current = pc;
     return pc;
-  }, []);
-
-  const addLocalTracks = useCallback((pc, stream) => {
-    stream.getTracks().forEach((track) => {
-      pc.addTrack(track, stream);
-    });
-  }, []);
-
-  const flushPendingCandidates = useCallback(async (pc) => {
-    const candidates = pendingCandidatesRef.current.splice(0);
-
-    for (const candidate of candidates) {
-      try {
-        await pc.addIceCandidate(candidate);
-      } catch (err) {
-        console.error("Queued ICE candidate error:", err);
-      }
-    }
-  }, []);
+  }, [ensureMicrophone, setupRemoteAudio]);
 
   const createOffer = useCallback(async () => {
+    if (offerStartedRef.current) return;
+
+    offerStartedRef.current = true;
+
     try {
-      setError("");
-      setLocalSdp("");
-
-      const stream = await ensureMicrophone();
-      const pc = createPeerConnection();
-
-      addLocalTracks(pc, stream);
-
+      const pc = await createPeerConnection();
       const offer = await pc.createOffer();
+
       await pc.setLocalDescription(offer);
 
-      const sdp = pc.localDescription?.sdp;
-      if (!sdp) throw new Error("Offer SDP generate nahi hua.");
+      const description = normalizeSdp(pc.localDescription);
+      setLocalSdp(description);
 
-      setLocalSdp(sdp);
-
-      if (socketRef.current?.connected && roomRef.current) {
-        socketRef.current.emit("webrtc-offer", {
-          roomId: roomRef.current,
-          offer: pc.localDescription,
-        });
-      }
-
-      return sdp;
+      socketRef.current?.emit('webrtc-offer', {
+        roomId: roomRef.current,
+        offer: description,
+      });
     } catch (err) {
-      setError(err.message || "Offer create nahi hua.");
-      return null;
+      offerStartedRef.current = false;
+      setError(err.message || 'Could not create voice offer.');
     }
-  }, [ensureMicrophone, createPeerConnection, addLocalTracks]);
+  }, [createPeerConnection]);
 
-  const acceptOffer = useCallback(async (offerInput) => {
+  const acceptOffer = useCallback(async (offer) => {
     try {
-      setError("");
+      const pc = await createPeerConnection();
 
-      const stream = await ensureMicrophone();
-      const pc = createPeerConnection();
+      await pc.setRemoteDescription(
+        new RTCSessionDescription(offer)
+      );
 
-      addLocalTracks(pc, stream);
-
-      const offer =
-        typeof offerInput === "string"
-          ? { type: "offer", sdp: normalizeSdp(offerInput) }
-          : offerInput;
-
-      await pc.setRemoteDescription(offer);
-      await flushPendingCandidates(pc);
+      for (const candidate of pendingCandidatesRef.current) {
+        await pc.addIceCandidate(candidate).catch(() => {});
+      }
+      pendingCandidatesRef.current = [];
 
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
-      const sdp = pc.localDescription?.sdp;
-      if (!sdp) throw new Error("Answer SDP generate nahi hua.");
+      const description = normalizeSdp(pc.localDescription);
+      setLocalSdp(description);
 
-      setLocalSdp(sdp);
-
-      if (socketRef.current?.connected && roomRef.current) {
-        socketRef.current.emit("webrtc-answer", {
-          roomId: roomRef.current,
-          answer: pc.localDescription,
-        });
-      }
-
-      return sdp;
+      socketRef.current?.emit('webrtc-answer', {
+        roomId: roomRef.current,
+        answer: description,
+      });
     } catch (err) {
-      setError(err.message || "Offer accept nahi hua.");
-      return null;
+      setError(err.message || 'Could not accept voice offer.');
     }
-  }, [
-    ensureMicrophone,
-    createPeerConnection,
-    addLocalTracks,
-    flushPendingCandidates,
-  ]);
+  }, [createPeerConnection]);
 
-  const acceptAnswer = useCallback(async (answerInput) => {
+  const acceptAnswer = useCallback(async (answer) => {
+    const pc = peerRef.current;
+
+    if (!pc || pc.signalingState === 'stable') return;
+
     try {
-      setError("");
+      await pc.setRemoteDescription(
+        new RTCSessionDescription(answer)
+      );
 
-      const pc = peerRef.current;
-
-      if (!pc || pc.signalingState !== "have-local-offer") {
-        throw new Error("Pehle isi tab mein Offer create karo.");
+      for (const candidate of pendingCandidatesRef.current) {
+        await pc.addIceCandidate(candidate).catch(() => {});
       }
-
-      const answer =
-        typeof answerInput === "string"
-          ? { type: "answer", sdp: normalizeSdp(answerInput) }
-          : answerInput;
-
-      await pc.setRemoteDescription(answer);
-      await flushPendingCandidates(pc);
+      pendingCandidatesRef.current = [];
     } catch (err) {
-      setError(err.message || "Answer accept nahi hua.");
+      setError(err.message || 'Could not accept voice answer.');
     }
-  }, [flushPendingCandidates]);
+  }, []);
 
   const joinRoom = useCallback(async (requestedRoomId) => {
-    const room = requestedRoomId.trim();
+    const cleanedRoomId = String(requestedRoomId || '').trim();
 
-    if (!room) {
-      setError("Room ID enter karo.");
-      return;
-    }
-
-    if (socketRef.current || roomRef.current) {
-      setError("Pehle current voice session End Voice se band karo.");
+    if (!cleanedRoomId) {
+      setError('Enter a room ID first.');
       return;
     }
 
     try {
-      setError("");
+      setError('');
+
       await ensureMicrophone();
 
-      const socket = io(SIGNALING_URL, {
-        transports: ["websocket", "polling"],
-      });
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
 
+      const socket = io(SIGNALING_URL);
       socketRef.current = socket;
-      roomRef.current = room;
-      setRoomId(room);
-      offerStartedRef.current = false;
+      roomRef.current = cleanedRoomId;
+      setRoomId(cleanedRoomId);
 
-      socket.on("connect", () => {
-        socket.emit("join-room", room);
+      socket.on('connect', () => {
+        socket.emit('join-room', cleanedRoomId);
       });
 
-      socket.on("connect_error", (err) => {
-        setError(`Signaling server connect nahi hua: ${err.message}`);
-      });
-
-      socket.on("room-joined", (data) => {
-        initiatorRef.current = data.isInitiator;
+      socket.on('room-joined', () => {
         setIsJoined(true);
-        setRoomId(data.roomId);
-        setError("");
       });
 
-      socket.on("room-full", () => {
-        setError("Room full hai. Abhi sirf 2 users allowed hain.");
-        socket.disconnect();
-        socketRef.current = null;
-        roomRef.current = "";
-        setIsJoined(false);
+      socket.on('room-full', () => {
+        setError('This voice room is full.');
       });
 
-      socket.on("peer-joined", async () => {
-        if (!initiatorRef.current || offerStartedRef.current) return;
-
-        offerStartedRef.current = true;
-        const result = await createOffer();
-
-        if (!result) {
-          offerStartedRef.current = false;
-        }
+      socket.on('peer-joined', () => {
+        initiatorRef.current = true;
+        void createOffer();
       });
 
-      socket.on("webrtc-offer", async (data) => {
-        if (data.from === socket.id) return;
-        await acceptOffer(data.offer);
+      socket.on('webrtc-offer', (payload) => {
+        void acceptOffer(payload.offer || payload);
       });
 
-      socket.on("webrtc-answer", async (data) => {
-        if (data.from === socket.id) return;
-        await acceptAnswer(data.answer);
+      socket.on('webrtc-answer', (payload) => {
+        void acceptAnswer(payload.answer || payload);
       });
 
-      socket.on("webrtc-ice-candidate", async (data) => {
-        if (data.from === socket.id || !data.candidate) return;
-
+      socket.on('webrtc-ice-candidate', async (payload) => {
+        const candidate = payload.candidate || payload;
         const pc = peerRef.current;
 
-        if (!pc || !pc.remoteDescription) {
-          pendingCandidatesRef.current.push(data.candidate);
-          return;
-        }
-
-        try {
-          await pc.addIceCandidate(data.candidate);
-        } catch (err) {
-          console.error("ICE candidate error:", err);
+        if (pc?.remoteDescription) {
+          await pc.addIceCandidate(candidate).catch(() => {});
+        } else {
+          pendingCandidatesRef.current.push(candidate);
         }
       });
+
+      socket.on('connect_error', () => {
+        setError('Could not connect to the voice server at localhost:3001.');
+      });
+
+      socket.on('disconnect', () => {
+        setIsJoined(false);
+      });
     } catch (err) {
-      setError(err.message || "Room join nahi hua.");
+      setError(err.message || 'Could not join the voice room.');
     }
-  }, [ensureMicrophone, createOffer, acceptOffer, acceptAnswer]);
+  }, [acceptAnswer, acceptOffer, createOffer, ensureMicrophone]);
 
-  const stopMicrophone = useCallback(() => {
-    if (socketRef.current) {
-      socketRef.current.disconnect();
-      socketRef.current = null;
+  const startMicrophone = useCallback(async () => {
+    try {
+      setError('');
+      await ensureMicrophone();
+    } catch (err) {
+      setError(err.message || 'Could not access the microphone.');
     }
+  }, [ensureMicrophone]);
 
-    roomRef.current = "";
-    initiatorRef.current = false;
-    offerStartedRef.current = false;
-    pendingCandidatesRef.current = [];
+  const toggleMicrophone = useCallback(() => {
+    const stream = streamRef.current;
+    if (!stream) return;
+
+    const nextMuted = !isMuted;
+
+    stream.getAudioTracks().forEach((track) => {
+      track.enabled = !nextMuted;
+    });
+
+    setIsMuted(nextMuted);
+  }, [isMuted]);
+
+  const stopMicrophone = useCallback(async () => {
+    socketRef.current?.disconnect();
+    socketRef.current = null;
 
     if (peerRef.current) {
       peerRef.current.ontrack = null;
       peerRef.current.onicecandidate = null;
+      peerRef.current.onconnectionstatechange = null;
       peerRef.current.close();
       peerRef.current = null;
     }
@@ -382,19 +403,20 @@ export default function useWebRTC() {
       streamRef.current = null;
     }
 
-    if (remoteAudioRef.current) {
-      remoteAudioRef.current.pause();
-      remoteAudioRef.current.srcObject = null;
-    }
+    await cleanupAudio();
+
+    roomRef.current = null;
+    initiatorRef.current = false;
+    offerStartedRef.current = false;
+    pendingCandidatesRef.current = [];
 
     setIsMicOn(false);
     setIsMuted(false);
-    setLocalSdp("");
-    setConnectionState("new");
     setIsJoined(false);
-    setRoomId("");
-    setError("");
-  }, []);
+    setRoomId('');
+    setLocalSdp(null);
+    setConnectionState('disconnected');
+  }, [cleanupAudio]);
 
   useEffect(() => {
     return () => {
@@ -402,8 +424,10 @@ export default function useWebRTC() {
       peerRef.current?.close();
 
       streamRef.current?.getTracks().forEach((track) => track.stop());
+
+      void cleanupAudio();
     };
-  }, []);
+  }, [cleanupAudio]);
 
   return {
     isMicOn,
@@ -411,15 +435,14 @@ export default function useWebRTC() {
     error,
     localSdp,
     connectionState,
-    remoteAudioRef,
     isJoined,
     roomId,
+    remoteAudioRef,
     startMicrophone,
     toggleMicrophone,
     stopMicrophone,
-    createOffer,
-    acceptOffer,
-    acceptAnswer,
     joinRoom,
+    updateAudioDistance,
+    calculateAudioGain,
   };
 }

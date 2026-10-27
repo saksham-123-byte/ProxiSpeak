@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { useEffect, useState } from 'react';
 import OfficeCanvas from './components/office/OfficeCanvas.jsx';
 import VoiceControls from './components/office/VoiceControls.jsx';
 import useWebRTC from './hooks/useWebRTC.js';
@@ -12,6 +13,8 @@ const TEAMMATES = [
   { id: 'maya', name: 'Maya', x: 970, y: 470, color: '#4ade80' },
 ];
 
+const MAX_AUDIO_DISTANCE = 600;
+
 function App() {
   const [player, setPlayer] = useState({ x: 300, y: 300 });
   const [activeTab, setActiveTab] = useState('Office');
@@ -24,20 +27,38 @@ function App() {
     startMicrophone,
     toggleMicrophone,
     stopMicrophone,
+    updateAudioDistance,
   } = useWebRTC();
 
   function handlePositionChange(position) {
     setPlayer(position);
   }
 
-  const nearbyPeople = TEAMMATES.filter((person) => {
-    const distance = Math.hypot(
+  const teammatesWithDistance = TEAMMATES.map((person) => ({
+    ...person,
+    distance: Math.hypot(
       person.x - player.x,
       person.y - player.y
-    );
+    ),
+  }));
 
-    return distance < PROXIMITY_RADIUS;
-  });
+  const nearbyPeople = teammatesWithDistance.filter(
+    (person) => person.distance < PROXIMITY_RADIUS
+  );
+
+  const nearestPerson = teammatesWithDistance.reduce(
+    (nearest, person) =>
+      person.distance < nearest.distance ? person : nearest,
+    { distance: Infinity }
+  );
+
+  useEffect(() => {
+    const distance = Number.isFinite(nearestPerson.distance)
+      ? Math.min(nearestPerson.distance, MAX_AUDIO_DISTANCE)
+      : MAX_AUDIO_DISTANCE;
+
+    updateAudioDistance(distance);
+  }, [nearestPerson.distance, updateAudioDistance]);
 
   async function inviteTeam() {
     try {
@@ -74,9 +95,7 @@ function App() {
           <div className="workspace-label">WORKSPACE</div>
 
           <button
-            className={`nav-item ${
-              activeTab === 'Office' ? 'selected' : ''
-            }`}
+            className={`nav-item ${activeTab === 'Office' ? 'selected' : ''}`}
             onClick={() => setActiveTab('Office')}
           >
             <span>▦</span>
@@ -84,9 +103,7 @@ function App() {
           </button>
 
           <button
-            className={`nav-item ${
-              activeTab === 'People' ? 'selected' : ''
-            }`}
+            className={`nav-item ${activeTab === 'People' ? 'selected' : ''}`}
             onClick={() => setActiveTab('People')}
           >
             <span>♧</span>
@@ -129,9 +146,7 @@ function App() {
               <div className="eyebrow">YOUR DIGITAL WORKSPACE</div>
 
               <h1>
-                {activeTab === 'People'
-                  ? 'Team members'
-                  : 'Virtual office'}
+                {activeTab === 'People' ? 'Team members' : 'Virtual office'}
               </h1>
 
               <p>
@@ -149,22 +164,21 @@ function App() {
 
           {activeTab === 'People' ? (
             <div className="people-grid">
-              {[
-                { id: 'you', name: 'You', color: '#8b5cf6' },
-                ...TEAMMATES,
-              ].map((person) => (
-                <div className="person-card" key={person.id}>
-                  <div
-                    className="person-card-avatar"
-                    style={{ background: person.color }}
-                  >
-                    {person.name[0]}
-                  </div>
+              {[{ id: 'you', name: 'You', color: '#8b5cf6' }, ...TEAMMATES].map(
+                (person) => (
+                  <div className="person-card" key={person.id}>
+                    <div
+                      className="person-card-avatar"
+                      style={{ background: person.color }}
+                    >
+                      {person.name[0]}
+                    </div>
 
-                  <strong>{person.name}</strong>
-                  <span>Virtual office member</span>
-                </div>
-              ))}
+                    <strong>{person.name}</strong>
+                    <span>Virtual office member</span>
+                  </div>
+                )
+              )}
             </div>
           ) : (
             <>
@@ -178,7 +192,7 @@ function App() {
                   </div>
 
                   <div className="coordinates">
-                    X: {player.x} &nbsp; Y: {player.y}
+                    X: {Math.round(player.x)} &nbsp; Y: {Math.round(player.y)}
                   </div>
                 </div>
 
@@ -190,8 +204,8 @@ function App() {
                 </div>
 
                 <div className="office-footer">
-                  <span>⌖ Navigate your workspace</span>
-                  <span>WASD / ↑ ↓ ← →</span>
+                  <span>Navigate your workspace</span>
+                  <span>WASD / Arrow keys</span>
                 </div>
               </section>
 
@@ -226,13 +240,7 @@ function App() {
                         </div>
 
                         <span className="distance-tag">
-                          {Math.round(
-                            Math.hypot(
-                              person.x - player.x,
-                              person.y - player.y
-                            )
-                          )}{' '}
-                          px
+                          {Math.round(person.distance)} px
                         </span>
                       </div>
                     ))
@@ -280,24 +288,23 @@ function App() {
                     </div>
                   </div>
 
+                  {connectionState !== 'disconnected' && (
+                    <p>Voice connection: {connectionState}</p>
+                  )}
+
+                  {error && <p role="alert">{error}</p>}
+
                   {!isMicOn ? (
-                    <button
-                      className="mute-button"
-                      onClick={startMicrophone}
-                    >
+                    <button className="mute-button" onClick={startMicrophone}>
                       Enable microphone
                     </button>
                   ) : (
                     <>
                       <button
-                        className={`mute-button ${
-                          !isMuted ? 'unmuted' : ''
-                        }`}
+                        className={`mute-button ${!isMuted ? 'unmuted' : ''}`}
                         onClick={toggleMicrophone}
                       >
-                        {isMuted
-                          ? 'Unmute microphone'
-                          : 'Mute microphone'}
+                        {isMuted ? 'Unmute microphone' : 'Mute microphone'}
                       </button>
 
                       <button
@@ -319,9 +326,7 @@ function App() {
                   <div className="card-heading">
                     <div>
                       <h2>Join Team Voice</h2>
-                      <p>
-                        Enter the same room ID as your teammate.
-                      </p>
+                      <p>Enter the same room ID as your teammate.</p>
                     </div>
                   </div>
 
