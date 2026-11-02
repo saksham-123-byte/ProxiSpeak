@@ -48,6 +48,7 @@ export default function useWebRTC() {
   const audioContextRef = useRef(null);
   const audioSourceRef = useRef(null);
   const gainNodeRef = useRef(null);
+  const panNodeRef = useRef(null);
   const remoteStreamRef = useRef(null);
 
   const [isMicOn, setIsMicOn] = useState(false);
@@ -68,6 +69,22 @@ export default function useWebRTC() {
 
     gainNode.gain.setTargetAtTime(
       targetGain,
+      audioContext.currentTime,
+      0.05
+    );
+  }, []);
+
+  // Stereo panning: -1 = left, 0 = center, +1 = right.
+  const updateAudioPan = useCallback((pan) => {
+    const panNode = panNodeRef.current;
+    const audioContext = audioContextRef.current;
+
+    if (!panNode || !audioContext) return;
+
+    const targetPan = Math.max(-1, Math.min(1, pan));
+
+    panNode.pan.setTargetAtTime(
+      targetPan,
       audioContext.currentTime,
       0.05
     );
@@ -98,29 +115,39 @@ export default function useWebRTC() {
         gainNodeRef.current = null;
       }
 
+      if (panNodeRef.current) {
+        panNodeRef.current.disconnect();
+        panNodeRef.current = null;
+      }
+
       const source = audioContext.createMediaStreamSource(stream);
       const gainNode = audioContext.createGain();
+      const panNode = audioContext.createStereoPanner();
 
       source.connect(gainNode);
-      gainNode.connect(audioContext.destination);
+      gainNode.connect(panNode);
+      panNode.connect(audioContext.destination);
 
       audioSourceRef.current = source;
       gainNodeRef.current = gainNode;
+      panNodeRef.current = panNode;
 
-      // Initial distance until actual player positions are connected.
+      // Initial audio settings.
       updateAudioDistance(0);
+      updateAudioPan(0);
 
-      // Audio is routed through Web Audio API, so don't also play the
-      // same stream through the HTML audio element.
+      // Audio is routed through Web Audio API.
       if (remoteAudioRef.current) {
         remoteAudioRef.current.pause();
         remoteAudioRef.current.srcObject = null;
       }
     } catch (err) {
       console.error('Web Audio setup failed:', err);
-      setError('Could not initialize spatial audio. Check browser audio permissions.');
+      setError(
+        'Could not initialize spatial audio. Check browser audio permissions.'
+      );
     }
-  }, [updateAudioDistance]);
+  }, [updateAudioDistance, updateAudioPan]);
 
   const cleanupAudio = useCallback(async () => {
     if (audioSourceRef.current) {
@@ -131,6 +158,11 @@ export default function useWebRTC() {
     if (gainNodeRef.current) {
       gainNodeRef.current.disconnect();
       gainNodeRef.current = null;
+    }
+
+    if (panNodeRef.current) {
+      panNodeRef.current.disconnect();
+      panNodeRef.current = null;
     }
 
     remoteStreamRef.current = null;
@@ -156,7 +188,9 @@ export default function useWebRTC() {
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      throw new Error('Microphone access is not supported in this browser.');
+      throw new Error(
+        'Microphone access is not supported in this browser.'
+      );
     }
 
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -258,6 +292,7 @@ export default function useWebRTC() {
       for (const candidate of pendingCandidatesRef.current) {
         await pc.addIceCandidate(candidate).catch(() => {});
       }
+
       pendingCandidatesRef.current = [];
 
       const answer = await pc.createAnswer();
@@ -288,6 +323,7 @@ export default function useWebRTC() {
       for (const candidate of pendingCandidatesRef.current) {
         await pc.addIceCandidate(candidate).catch(() => {});
       }
+
       pendingCandidatesRef.current = [];
     } catch (err) {
       setError(err.message || 'Could not accept voice answer.');
@@ -353,7 +389,9 @@ export default function useWebRTC() {
       });
 
       socket.on('connect_error', () => {
-        setError('Could not connect to the voice server at localhost:3001.');
+        setError(
+          'Could not connect to the voice server at localhost:3001.'
+        );
       });
 
       socket.on('disconnect', () => {
@@ -443,6 +481,7 @@ export default function useWebRTC() {
     stopMicrophone,
     joinRoom,
     updateAudioDistance,
+    updateAudioPan,
     calculateAudioGain,
   };
 }

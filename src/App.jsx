@@ -6,17 +6,12 @@ import useWebRTC from './hooks/useWebRTC.js';
 import './App.css';
 
 const PROXIMITY_RADIUS = 180;
-
-const TEAMMATES = [
-  { id: 'alex', name: 'Alex', x: 650, y: 260, color: '#38bdf8' },
-  { id: 'sam', name: 'Sam', x: 850, y: 470, color: '#fb923c' },
-  { id: 'maya', name: 'Maya', x: 970, y: 470, color: '#4ade80' },
-];
-
 const MAX_AUDIO_DISTANCE = 600;
+const MAX_PAN_DISTANCE = 300;
 
 function App() {
   const [player, setPlayer] = useState({ x: 300, y: 300 });
+  const [remotePlayers, setRemotePlayers] = useState([]);
   const [activeTab, setActiveTab] = useState('Office');
 
   const {
@@ -28,28 +23,35 @@ function App() {
     toggleMicrophone,
     stopMicrophone,
     updateAudioDistance,
+    updateAudioPan,
   } = useWebRTC();
 
   function handlePositionChange(position) {
     setPlayer(position);
   }
 
-  const teammatesWithDistance = TEAMMATES.map((person) => ({
-    ...person,
-    distance: Math.hypot(
-      person.x - player.x,
-      person.y - player.y
-    ),
-  }));
+  const audioTargets = remotePlayers.map((person) => {
+    const dx = person.x - player.x;
+    const dy = person.y - player.y;
 
-  const nearbyPeople = teammatesWithDistance.filter(
+    return {
+      ...person,
+      distance: Math.hypot(dx, dy),
+      pan: Math.max(
+        -1,
+        Math.min(1, dx / MAX_PAN_DISTANCE)
+      ),
+    };
+  });
+
+  const nearbyPeople = audioTargets.filter(
     (person) => person.distance < PROXIMITY_RADIUS
   );
 
-  const nearestPerson = teammatesWithDistance.reduce(
+  const nearestPerson = audioTargets.reduce(
     (nearest, person) =>
       person.distance < nearest.distance ? person : nearest,
-    { distance: Infinity }
+    { distance: Infinity, pan: 0 }
   );
 
   useEffect(() => {
@@ -58,7 +60,13 @@ function App() {
       : MAX_AUDIO_DISTANCE;
 
     updateAudioDistance(distance);
-  }, [nearestPerson.distance, updateAudioDistance]);
+    updateAudioPan(nearestPerson.pan);
+  }, [
+    nearestPerson.distance,
+    nearestPerson.pan,
+    updateAudioDistance,
+    updateAudioPan,
+  ]);
 
   async function inviteTeam() {
     try {
@@ -108,7 +116,7 @@ function App() {
           >
             <span>♧</span>
             People
-            <span className="nav-count">4</span>
+            <span className="nav-count">{remotePlayers.length + 1}</span>
           </button>
 
           <div className="sidebar-divider" />
@@ -121,7 +129,7 @@ function App() {
             <span className="you-tag">YOU</span>
           </div>
 
-          {TEAMMATES.map((person) => (
+          {remotePlayers.map((person) => (
             <div className="person-row" key={person.id}>
               <span
                 className="person-dot"
@@ -164,21 +172,22 @@ function App() {
 
           {activeTab === 'People' ? (
             <div className="people-grid">
-              {[{ id: 'you', name: 'You', color: '#8b5cf6' }, ...TEAMMATES].map(
-                (person) => (
-                  <div className="person-card" key={person.id}>
-                    <div
-                      className="person-card-avatar"
-                      style={{ background: person.color }}
-                    >
-                      {person.name[0]}
-                    </div>
-
-                    <strong>{person.name}</strong>
-                    <span>Virtual office member</span>
+              {[
+                { id: 'you', name: 'You', color: '#8b5cf6' },
+                ...remotePlayers,
+              ].map((person) => (
+                <div className="person-card" key={person.id}>
+                  <div
+                    className="person-card-avatar"
+                    style={{ background: person.color }}
+                  >
+                    {person.name[0]}
                   </div>
-                )
-              )}
+
+                  <strong>{person.name}</strong>
+                  <span>Virtual office member</span>
+                </div>
+              ))}
             </div>
           ) : (
             <>
@@ -198,8 +207,9 @@ function App() {
 
                 <div className="canvas-wrap">
                   <OfficeCanvas
-                    teammates={TEAMMATES}
+                    teammates={[]}
                     onPositionChange={handlePositionChange}
+                    onPlayersChange={setRemotePlayers}
                   />
                 </div>
 

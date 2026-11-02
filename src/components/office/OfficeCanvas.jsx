@@ -5,6 +5,7 @@ import { io } from 'socket.io-client';
 const WORLD_WIDTH = 1200;
 const WORLD_HEIGHT = 700;
 const PLAYER_SPEED = 240;
+const OFFICE_ROOM_ID = 'proxispeak';
 
 function drawRoundedRect(ctx, x, y, width, height, radius, color) {
   ctx.fillStyle = color;
@@ -183,7 +184,11 @@ function drawWorld(ctx, player, teammates, zoom = 1) {
   ctx.restore();
 }
 
-export default function OfficeCanvas({ teammates = [], onPositionChange }) {
+export default function OfficeCanvas({
+  teammates = [],
+  onPositionChange,
+  onPlayersChange,
+}) {
   const canvasRef = useRef(null);
   const playerRef = useRef({ x: 300, y: 300 });
   const keysRef = useRef({});
@@ -192,6 +197,7 @@ export default function OfficeCanvas({ teammates = [], onPositionChange }) {
   const remotePlayersRef = useRef({});
   const teammatesRef = useRef(teammates);
   const onPositionChangeRef = useRef(onPositionChange);
+  const onPlayersChangeRef = useRef(onPlayersChange);
 
   const [zoom, setZoom] = useState(1);
 
@@ -204,6 +210,10 @@ export default function OfficeCanvas({ teammates = [], onPositionChange }) {
   }, [onPositionChange]);
 
   useEffect(() => {
+    onPlayersChangeRef.current = onPlayersChange;
+  }, [onPlayersChange]);
+
+  useEffect(() => {
     const socketUrl = import.meta.env.VITE_SOCKET_URL;
 
     if (!socketUrl) {
@@ -214,23 +224,18 @@ export default function OfficeCanvas({ teammates = [], onPositionChange }) {
     const socket = io(socketUrl);
     socketRef.current = socket;
 
-    socket.on('connect', () => {
-      console.log('Connected to ProxiSpeak backend:', socket.id);
-    });
+    const publishPlayers = () => {
+      onPlayersChangeRef.current?.(
+        Object.values(remotePlayersRef.current),
+      );
+    };
 
-    socket.on('connect_error', (error) => {
-      console.error('Socket connection failed:', error.message);
-    });
-
-    socket.on('disconnect', (reason) => {
-      console.warn('Disconnected from ProxiSpeak backend:', reason);
-    });
-
-    socket.on('player:moved', ({ socketId, location } = {}) => {
+    const addRemotePlayer = (socketId, location) => {
       if (
         !socketId ||
-        typeof location?.x !== 'number' ||
-        typeof location?.y !== 'number'
+        socketId === socket.id ||
+        !Number.isFinite(location?.x) ||
+        !Number.isFinite(location?.y)
       ) {
         return;
       }
@@ -242,12 +247,54 @@ export default function OfficeCanvas({ teammates = [], onPositionChange }) {
         y: location.y,
         color: '#38bdf8',
       };
+
+      publishPlayers();
+    };
+
+    const removeRemotePlayer = (socketId) => {
+      if (!socketId) return;
+
+      delete remotePlayersRef.current[socketId];
+      publishPlayers();
+    };
+
+    socket.on('connect', () => {
+      console.log('Connected to ProxiSpeak backend:', socket.id);
+
+      // Join the shared office room after every connection/reconnection.
+      socket.emit('join-office-room', OFFICE_ROOM_ID);
+
+      // Send current position after joining.
+      socket.emit('player:move', {
+        location: playerRef.current,
+      });
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('Socket connection failed:', error.message);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.warn('Disconnected from ProxiSpeak backend:', reason);
+    });
+
+    socket.on('player:moved', ({ socketId, location } = {}) => {
+      addRemotePlayer(socketId, location);
+    });
+
+    socket.on('player:joined', ({ socketId, location } = {}) => {
+      addRemotePlayer(socketId, location);
+    });
+
+    socket.on('player:left', ({ socketId } = {}) => {
+      removeRemotePlayer(socketId);
     });
 
     return () => {
       socket.disconnect();
       socketRef.current = null;
       remotePlayersRef.current = {};
+      onPlayersChangeRef.current?.([]);
     };
   }, []);
 
@@ -379,7 +426,9 @@ export default function OfficeCanvas({ teammates = [], onPositionChange }) {
         onPositionChangeRef.current?.(currentPosition);
 
         if (socketRef.current?.connected) {
-          socketRef.current.emit('player:move', currentPosition);
+          socketRef.current.emit('player:move', {
+            location: currentPosition,
+          });
         }
 
         lastUiUpdate = time;
