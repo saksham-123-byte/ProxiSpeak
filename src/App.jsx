@@ -9,6 +9,31 @@ const PROXIMITY_RADIUS = 180;
 const MAX_AUDIO_DISTANCE = 600;
 const MAX_PAN_DISTANCE = 300;
 
+// Demo teammates: visual placeholders only
+const TEAMMATES = [
+  {
+    id: 'alex',
+    name: 'Alex',
+    x: 500,
+    y: 250,
+    color: '#3b82f6',
+  },
+  {
+    id: 'sam',
+    name: 'Sam',
+    x: 700,
+    y: 400,
+    color: '#22c55e',
+  },
+  {
+    id: 'maya',
+    name: 'Maya',
+    x: 850,
+    y: 200,
+    color: '#f59e0b',
+  },
+];
+
 function App() {
   const [player, setPlayer] = useState({ x: 300, y: 300 });
   const [remotePlayers, setRemotePlayers] = useState([]);
@@ -30,6 +55,7 @@ function App() {
     setPlayer(position);
   }
 
+  // Audio calculations use actual connected players only.
   const audioTargets = remotePlayers.map((person) => {
     const dx = person.x - player.x;
     const dy = person.y - player.y;
@@ -37,10 +63,7 @@ function App() {
     return {
       ...person,
       distance: Math.hypot(dx, dy),
-      pan: Math.max(
-        -1,
-        Math.min(1, dx / MAX_PAN_DISTANCE)
-      ),
+      pan: Math.max(-1, Math.min(1, dx / MAX_PAN_DISTANCE)),
     };
   });
 
@@ -207,7 +230,7 @@ function App() {
 
                 <div className="canvas-wrap">
                   <OfficeCanvas
-                    teammates={[]}
+                    teammates={TEAMMATES}
                     onPositionChange={handlePositionChange}
                     onPlayersChange={setRemotePlayers}
                   />

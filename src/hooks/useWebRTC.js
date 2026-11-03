@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 
-const SIGNALING_URL = 'http://localhost:3001';
+const SIGNALING_URL = "http://10.170.56.54:3001";
 
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
